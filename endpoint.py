@@ -4,7 +4,9 @@ from tornado.options import define, options
 
 from model import ModelLLM
 
-class ModelEndpoint:
+from singleton import Singleton
+
+class ModelEndpoint(metaclass=Singleton):
     def __init__(self, port=8080, host="localhost", base_url=""):
         self.port = port
         self.host = host

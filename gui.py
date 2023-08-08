@@ -4,9 +4,13 @@
 import time
 import requests
 
+from querier import QueryEngine
+
 BOT_FLAG = "A: "
 HUMAN_FLAG = "Q: "
-STANDARD_PROMPT = BOT_FLAG + "Hello, how can I help you?\n"
+QUERIER_FLAG = "R: "
+INFO_PROMPT = "At any time, use [HELP] followed by a question in the answer to receive additional information from the search tool named R.\n"
+STANDARD_PROMPT = INFO_PROMPT + BOT_FLAG + "Hello, how can I help you?\n"
 
 class Chatbot:
     def __init__(self, endpoint="http://localhost:8080"):
@@ -14,12 +18,24 @@ class Chatbot:
         
         self.endpoint = endpoint
         
+        self.query_engine = QueryEngine()
+        
     def prompt(self, prompt):
         self.log.append(HUMAN_FLAG + prompt + "\n")
         
-        dialog = self.log[-10:]
+        dialog = self.log[:1][-5:]
         dialog = " ".join(dialog) + BOT_FLAG
         
+        response = requests.get(f"{self.endpoint}/?prompt={dialog}")
+        
+        #truncate to one response, remove any HUMAN_FLAG
+        response = response.text.replace(dialog, "").split(HUMAN_FLAG)[0].split(BOT_FLAG)[0].strip()
+        
+        if response.__contains__("[HELP]") :
+            query_prompt = response.split("[HELP]")[1].strip()
+            q_response = str(self.query_engine.query(query=query_prompt))
+            self.log.append(BOT_FLAG + response + "\n" + QUERIER_FLAG + q_response + "\n")
+            
         response = requests.get(f"{self.endpoint}/?prompt={dialog}")
         
         #truncate to one response, remove any HUMAN_FLAG
