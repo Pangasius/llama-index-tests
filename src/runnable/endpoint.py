@@ -1,10 +1,12 @@
+# package: code/tests
+
 import tornado.ioloop
 import tornado.web
 from tornado.options import define, options
 
-from model import ModelLLM
+from backend.model import ModelLLM
 
-from singleton import Singleton
+from utils.singleton import Singleton
 
 class ModelEndpoint(metaclass=Singleton):
     def __init__(self, port=8080, host="localhost", base_url=""):
@@ -39,6 +41,3 @@ class ModelEndpoint(metaclass=Singleton):
     
 def run_model_endpoint(port=8080, host="localhost", base_url=""):
     ModelEndpoint(port=port, host=host, base_url=base_url).start()
-
-if __name__ == "__main__":
-    run_model_endpoint()

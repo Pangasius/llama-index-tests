@@ -1,3 +1,5 @@
+# package: code/backend
+
 from typing import Any, List, Mapping, Optional
 import torch
 from transformers import LlamaTokenizer, LlamaForCausalLM
@@ -6,7 +8,7 @@ from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 from llama_index.embeddings.base import BaseEmbedding
 
-from singleton import Singleton
+from utils.singleton import Singleton
 
 def convert_tokens_to_ids(tokens):
     return ModelLoader().tokenizer.convert_tokens_to_ids(tokens)
@@ -47,6 +49,7 @@ class ModelLoader(metaclass=Singleton):
 class Embedding(BaseEmbedding):
     def _get_text_embedding(self, text: str) -> List[float]:
         """Get text embedding."""
+        #https://betterprogramming.pub/building-a-question-answer-bot-with-langchain-vicuna-and-sentence-transformers-b7f80428eadc
         input_ids = ModelLoader().tokenizer(text).input_ids
         input_embeddings = ModelLoader().model.get_input_embeddings()
         embeddings = input_embeddings(torch.LongTensor([input_ids]).to(ModelLoader().model.device))

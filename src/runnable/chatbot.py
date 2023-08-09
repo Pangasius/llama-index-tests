@@ -1,18 +1,16 @@
-#gui for chatbot
-#http://localhost:8080/?prompt=
+# package: code
 
-import time
 from llama_index.prompts.chat_prompts import CHAT_REFINE_PROMPT
 from llama_index.response.schema import Response
-from model import ModelLLM
 
-from colorful import rainbow, random
+from utils.colorful import rainbow, random
 
-from querier import QueryEngine
+from backend.querier import QueryEngine
+from backend.model import ModelLLM
 
 BOT_FLAG = "A: "
 HUMAN_FLAG = "Q: "
-STANDARD_PROMPT = BOT_FLAG + "Hello. I am a powerful chatbot capable of writing code in many languages and communicate on various topics. How can I help you?\n"
+STANDARD_PROMPT = BOT_FLAG + "Hello. How can I help you?\n"
 
 class Chatbot:
     def __init__(self, endpoint="http://localhost:8080"):
@@ -36,31 +34,29 @@ class Chatbot:
         else :
             context = context_msg.response_txt or BOT_FLAG + "Could not find a response."
         
-        sources = context_msg.get_formatted_sources()
-        context = "".join(self.log) + context.strip() + "\n" + sources
+        context = "\n" + "".join(self.log) + context.strip()
         
         print("Done.")
         print(random("Answering without query...") + "\033[0m")
         
-        existing_answer = BOT_FLAG + ModelLLM()._call(prompt="".join(self.log) + "\n" + BOT_FLAG).split("A: ")[0]
+        existing_answer = "\n" + BOT_FLAG + ModelLLM()._call(prompt="".join(self.log) + "\n" + BOT_FLAG).split(BOT_FLAG)[0]
         
         print("Done.")
         print(random("Refining answer with query...") + "\033[0m")
         
-        new_attempt = ModelLLM()._call(prompt=CHAT_REFINE_PROMPT.format(context_msg=context, query_str=prompt,existing_answer=existing_answer) + "\n" + BOT_FLAG).split("A: ")[0]
+        new_attempt = ModelLLM()._call(prompt=CHAT_REFINE_PROMPT.format(context_msg=context, query_str="\n" + prompt,existing_answer=existing_answer) + "\n" + BOT_FLAG).split("A: ")[0]
         
         print("Done.\n")
         
         self.log.append(new_attempt)
         
         #truncate to one response, remove any HUMAN_FLAG
+        sources = context_msg.get_formatted_sources()
         final_response = new_attempt + "\n" + sources
         
         return final_response
     
     def start(self):
-        time.sleep(1)
-        
         while True:
             #prompt with the color light orange
             prompt =  input("\033[93m" + "You: " + "\033[90m") + "\n"
@@ -83,17 +79,9 @@ class Chatbot:
             print("\033[94m" + "Chatbot: " + "\033[0m" + self.prompt(prompt) )
             
             
-if __name__ == "__main__":
-    import concurrent.futures
-    from endpoint import ModelEndpoint
-    
+def run_chatbot():
     chatbot = Chatbot()
     
     print("Chatbot initialized.")
     
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        print("Starting chatbot...")
-
-        executor.submit(chatbot.start)
-        
-        print("Chatbot started.")
+    chatbot.start()

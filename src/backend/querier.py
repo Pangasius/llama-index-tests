@@ -1,11 +1,13 @@
-from llama_index import GPTVectorStoreIndex, SimpleDirectoryReader, download_loader
+# package: code/backend
+
+from llama_index import VectorStoreIndex, SimpleDirectoryReader, download_loader
 
 from llama_index.indices.service_context import ServiceContext
 from llama_index.indices.prompt_helper import PromptHelper
 
-from model import ModelLLM, ModelLoader, Embedding
+from backend.model import ModelLLM, ModelLoader, Embedding
 
-from singleton import Singleton
+from utils.singleton import Singleton
 
 class QueryEngine(metaclass=Singleton):
     def __init__(self):
@@ -13,7 +15,7 @@ class QueryEngine(metaclass=Singleton):
         prompt_helper = PromptHelper(chunk_overlap_ratio=0.2,
                                      tokenizer=ModelLoader().tokenizer,
                                      chunk_size_limit=512,
-                                     context_window=1024)
+                                     context_window=2048)
         
         llm = ModelLLM()
         embedder = "local" #Embedding()
@@ -27,7 +29,7 @@ class QueryEngine(metaclass=Singleton):
         
         documents += SimpleDirectoryReader("examples/F12-FR/available/", recursive=True).load_data()
         
-        index = GPTVectorStoreIndex.from_documents(documents, service_context=service_context)
+        index = VectorStoreIndex.from_documents(documents, service_context=service_context, similarity_top_k=4)
 
         self.query_engine = index.as_query_engine(service_context=service_context)
         
@@ -36,6 +38,13 @@ class QueryEngine(metaclass=Singleton):
     def query(self, query):
         return self.query_engine.query(query)
     
-if __name__ == "__main__":
-    q = QueryEngine()
-    print(q.query("What type of conviction has EDF (Electrivité de France) received?"))
+def run_querier():
+    QueryEngine()
+    
+    while True:
+        query = input("Query: ")
+        answer = QueryEngine().query(query)
+        
+        print(f"Query: {query}")
+        print(f"Answer: {answer}")
+        print(f"Sources: {answer.get_formatted_sources()}")
