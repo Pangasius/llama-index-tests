@@ -19,7 +19,7 @@ load_dotenv()
 
 documents = SimpleDirectoryReader("examples/F12-FR/", recursive=True).load_data()
 
-llm = ModelLoader.
+llm = ModelLLM()
 
 service_context = ServiceContext.from_defaults(llm=llm, embed_model="local")
 

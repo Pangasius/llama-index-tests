@@ -2,48 +2,61 @@
 #http://localhost:8080/?prompt=
 
 import time
-import requests
+from llama_index.prompts.chat_prompts import CHAT_REFINE_PROMPT
+from llama_index.response.schema import Response
+from model import ModelLLM
+
+from colorful import rainbow, random
 
 from querier import QueryEngine
 
 BOT_FLAG = "A: "
 HUMAN_FLAG = "Q: "
-QUERIER_FLAG = "R: "
-INFO_PROMPT = "At any time, use [HELP] followed by a question in the answer to receive additional information from the search tool named R.\n"
-STANDARD_PROMPT = INFO_PROMPT + BOT_FLAG + "Hello, how can I help you?\n"
+STANDARD_PROMPT = BOT_FLAG + "Hello. I am a powerful chatbot capable of writing code in many languages and communicate on various topics. How can I help you?\n"
 
 class Chatbot:
     def __init__(self, endpoint="http://localhost:8080"):
         self.log = [STANDARD_PROMPT]
         
-        self.endpoint = endpoint
-        
         self.query_engine = QueryEngine()
         
     def prompt(self, prompt):
-        self.log.append(HUMAN_FLAG + prompt + "\n")
+        self.log.append(HUMAN_FLAG + prompt)
         
-        dialog = self.log[:1][-5:]
-        dialog = " ".join(dialog) + BOT_FLAG
+        dialog = self.log
+        dialog = "".join(dialog)
         
-        response = requests.get(f"{self.endpoint}/?prompt={dialog}")
+        #print in light blue
+        print(random("Querying search engine... ") + "\033[0m")
+        
+        context_msg = self.query_engine.query(query=prompt)
+        
+        if isinstance(context_msg, Response):
+            context = context_msg.response or BOT_FLAG + "Could not find a response."
+        else :
+            context = context_msg.response_txt or BOT_FLAG + "Could not find a response."
+        
+        sources = context_msg.get_formatted_sources()
+        context = "".join(self.log) + context.strip() + "\n" + sources
+        
+        print("Done.")
+        print(random("Answering without query...") + "\033[0m")
+        
+        existing_answer = BOT_FLAG + ModelLLM()._call(prompt="".join(self.log) + "\n" + BOT_FLAG).split("A: ")[0]
+        
+        print("Done.")
+        print(random("Refining answer with query...") + "\033[0m")
+        
+        new_attempt = ModelLLM()._call(prompt=CHAT_REFINE_PROMPT.format(context_msg=context, query_str=prompt,existing_answer=existing_answer) + "\n" + BOT_FLAG).split("A: ")[0]
+        
+        print("Done.\n")
+        
+        self.log.append(new_attempt)
         
         #truncate to one response, remove any HUMAN_FLAG
-        response = response.text.replace(dialog, "").split(HUMAN_FLAG)[0].split(BOT_FLAG)[0].strip()
+        final_response = new_attempt + "\n" + sources
         
-        if response.__contains__("[HELP]") :
-            query_prompt = response.split("[HELP]")[1].strip()
-            q_response = str(self.query_engine.query(query=query_prompt))
-            self.log.append(BOT_FLAG + response + "\n" + QUERIER_FLAG + q_response + "\n")
-            
-        response = requests.get(f"{self.endpoint}/?prompt={dialog}")
-        
-        #truncate to one response, remove any HUMAN_FLAG
-        response = response.text.replace(dialog, "").split(HUMAN_FLAG)[0].split(BOT_FLAG)[0].strip()
-        
-        self.log.append(BOT_FLAG + response + "\n")
-        
-        return response
+        return final_response
     
     def start(self):
         time.sleep(1)
@@ -70,30 +83,17 @@ class Chatbot:
             print("\033[94m" + "Chatbot: " + "\033[0m" + self.prompt(prompt) )
             
             
-def run_chatbot(endpoint="http://localhost:8080"):
-    Chatbot(endpoint=endpoint).start()
-
 if __name__ == "__main__":
     import concurrent.futures
     from endpoint import ModelEndpoint
     
-    print("Initializing model endpoint and chatbot...")
-    
-    model_endpoint = ModelEndpoint()
-    
-    print(f"Model endpoint initialized at {model_endpoint.url}")
-    
-    chatbot = Chatbot(model_endpoint.url)
+    chatbot = Chatbot()
     
     print("Chatbot initialized.")
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        print("Starting model endpoint and chatbot...")
-        
-        executor.submit(model_endpoint.start)
-        
-        print("Model endpoint started.")
-        
+        print("Starting chatbot...")
+
         executor.submit(chatbot.start)
         
         print("Chatbot started.")

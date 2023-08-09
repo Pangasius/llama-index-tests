@@ -4,6 +4,7 @@ from transformers import LlamaTokenizer, LlamaForCausalLM
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 
 from langchain.llms.base import LLM
+from llama_index.embeddings.base import BaseEmbedding
 
 from singleton import Singleton
 
@@ -18,7 +19,7 @@ def generate(input_ids, stop_ids):
     
     output_ids = model.generate(
         input_ids=input_ids,
-        max_new_tokens=256,
+        max_new_tokens=512,
         do_sample=True,
         top_k=10,
         top_p=0.95,
@@ -41,6 +42,24 @@ class ModelLoader(metaclass=Singleton):
     )
 
     tokenizer = LlamaTokenizer.from_pretrained(model_path)
+    
+#Actually best not to use that since it was not made to be an embedder
+class Embedding(BaseEmbedding):
+    def _get_text_embedding(self, text: str) -> List[float]:
+        """Get text embedding."""
+        input_ids = ModelLoader().tokenizer(text).input_ids
+        input_embeddings = ModelLoader().model.get_input_embeddings()
+        embeddings = input_embeddings(torch.LongTensor([input_ids]).to(ModelLoader().model.device))
+        mean = torch.mean(embeddings[0], 0).cpu().detach()
+        return mean.tolist()
+        
+    def _get_query_embedding(self, query: str) -> List[float]:
+        """Get query embedding."""
+        return self._get_text_embedding(query)
+
+    async def _aget_query_embedding(self, query: str) -> List[float]:
+        """Get query embedding asynchronously."""
+        return self._get_query_embedding(query)
 
 class ModelLLM(LLM) :
     @property
